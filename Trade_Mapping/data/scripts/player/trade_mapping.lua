@@ -47,7 +47,7 @@ if onClient() then
 	local lastX, lastY
 	local container, resolution
 	local filterCombo, selectedFilter
-    local sectorList, listContainer, listRender
+    local sectorList, listContainer, listRender, listLabels
 	local lastData, sectorGoodsSorted, knownGoods
 	local lineHeight = 11
 
@@ -56,7 +56,7 @@ if onClient() then
 	local colSell = ColorARGB(0.9, 0.2, 0.8, 0.2)
 	local colBoth = ColorARGB(0.9, 0.8, 0.8, 0.2)
 	local colNone = ColorARGB(0.9, 0.2, 0.4, 0.8)
-	local colList = ColorARGB(0.8, 0.8, 0.8, 0.8)
+	local colList = ColorRGB(0.88, 0.88, 0.88)
 	
 	function addLastY(num) -- joke alternative to the common ++ which lua doesn't even remotely support
 		lastY = lastY + num
@@ -268,6 +268,7 @@ if onClient() then
 		if not lastData[tostring(coords)] then listContainer:hide() return end
 		listContainer:show()
 
+		listLabels = {}
 		listRender = {}
 		listContainer:clear()
 		-- local list = UIVerticalLister(Rect(lastX + 5, lastY + 10, 300, lastY + 10), 5, 0)
@@ -282,49 +283,57 @@ if onClient() then
 			local goods = sectorGoodsSorted[selection.."Sorted"]
 			for i,g in ipairs(goods) do
 				local rect = list:nextRect(lineHeight)
-				listContainer:createLabel(rect, g, lineHeight)
-				
+				local lbl = listContainer:createLabel(rect, g, lineHeight)
+				lbl.mouseDownFunction = "onListSelected"
+				lbl.color = colList
+				listLabels[lbl.index] = lbl
+
 				rect.lower = rect.lower + vec2(list.inner.width * 0.75, 0)
-				listContainer:createLabel(rect, lastData[tostring(coords)][selection][g].best_price,
-					lineHeight):setRightAligned()
+				local lbl = listContainer:createLabel(rect, lastData[tostring(coords)][selection][g].best_price,
+					lineHeight)
+				lbl.color = colList
+				lbl:setRightAligned()
 			end
 		else
-			-- show which sectors sells and buys the selected good
-			sortSectorDist(coords)
-			
-			-- local dist = 0
-			for i,sec in ipairs(sectorList) do
-				local buying  = sec.buying[selectedFilter]
-				buying = buying and buying.stations or 0
-				
-				local selling = sec.selling[selectedFilter]
-				selling = selling and selling.stations or 0
-				
-				if buying > 0 or selling > 0 or selectedFilter == uiTranslate.splitter then
-					-- dist = math.floor(distance(coords, sec.sector) * 10 + 0.5) / 10
-					-- local btn = listBoxEx:createButton(
-						-- list:placeLeft(vec2(list.inner.width, 16)),
-						-- "B> "..(buying > 0 and buying or "-").." / S> "..
-						-- (selling > 0 and selling or "-").." / "..tostring(sec.sector).." / "..dist,
-						-- "onSectorListClick"
-					-- )
-					-- btn.maxTextSize = 13
-					-- listRender[btn.index] = {
-					listRender[#listRender + 1] = {
-						pos = ivec2(sec.sector.x, sec.sector.y),
-						color = ((buying > 0 and selling > 0) and colBoth) or 
-							(buying > 0 and colSell or selling > 0 and colBuy or colNone)
-					}
-					-- list:addEntry(g, g)
-				end
-			end
+			TradeMapping.markSectorsWith(selection)
 		end
 
 		listContainer:scroll(-3)
 	end
+
+	function TradeMapping.markSectorsWith(goodName)
+		local coords = ivec2(GalaxyMap():getSelectedCoordinates())
+		if not lastData[tostring(coords)] then return end
+
+		sortSectorDist(coords)
+		
+		listRender = {}
+		for i,sec in ipairs(sectorList) do
+			local buying  = sec.buying[goodName]
+			buying = buying and buying.stations or 0
+			
+			local selling = sec.selling[goodName]
+			selling = selling and selling.stations or 0
+			
+			if buying > 0 or selling > 0 or goodName == uiTranslate.splitter then
+				listRender[#listRender + 1] = {
+					pos = ivec2(sec.sector.x, sec.sector.y),
+					color = ((buying > 0 and selling > 0) and colBoth) or 
+						(buying > 0 and colSell or selling > 0 and colBuy or colNone)
+				}
+			end
+		end
+	end
 	
-	function TradeMapping.onListSelected()
-		-- print(listBoxEx.selected, listBoxEx.selectedValue)
+	function TradeMapping.onListSelected(index, button)
+		if button ~= 1 then return end
+
+		for i,lbl in pairs(listLabels) do
+			lbl.color = (i == index and colSell or colList)
+			if i == index then
+				TradeMapping.markSectorsWith(lbl.caption)
+			end
+		end
 	end
 	
 	function TradeMapping.sectorHas(sector, good, buyingFromSector)
