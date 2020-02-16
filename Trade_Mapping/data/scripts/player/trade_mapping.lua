@@ -265,20 +265,21 @@ if onClient() then
 		local selection = uiTranslate[selectedFilter]
 		local coords = ivec2(GalaxyMap():getSelectedCoordinates())
 		
-		if not lastData[tostring(coords)] then listContainer:hide() return end
-		listContainer:show()
+		if not lastData then return end
 
 		listLabels = {}
 		listRender = {}
-		listContainer:clear()
-		-- local list = UIVerticalLister(Rect(lastX + 5, lastY + 10, 300, lastY + 10), 5, 0)
+
 		local list = UIVerticalLister(Rect(vec2(4, 0), vec2(270, lineHeight)), 5, 0)
 	
-		if not lastData then return end
-		-- print(selection, coords)
+		listContainer:show()
+		listContainer:clear()
 		
+		local coords = ivec2(GalaxyMap():getSelectedCoordinates())
+		sortSectorDist(coords)
+
 		if selection and selection ~= "splitter" then
-			if not sectorGoodsSorted then return end
+			if not sectorGoodsSorted then listContainer:hide() return end
 
 			local goods = sectorGoodsSorted[selection.."Sorted"]
 			for i,g in ipairs(goods) do
@@ -294,8 +295,11 @@ if onClient() then
 				lbl.color = colList
 				lbl:setRightAligned()
 			end
+
+			if not next(listLabels) then listContainer:hide() end
 		else
-			TradeMapping.markSectorsWith(selection)
+
+			TradeMapping.markSectorsWith(selectedFilter)
 			listContainer:hide()
 		end
 
@@ -303,11 +307,6 @@ if onClient() then
 	end
 
 	function TradeMapping.markSectorsWith(goodName)
-		local coords = ivec2(GalaxyMap():getSelectedCoordinates())
-		if not lastData[tostring(coords)] then return end
-
-		sortSectorDist(coords)
-		
 		listRender = {}
 		for i,sec in ipairs(sectorList) do
 			local buying  = sec.buying[goodName]
@@ -316,7 +315,7 @@ if onClient() then
 			local selling = sec.selling[goodName]
 			selling = selling and selling.stations or 0
 			
-			if buying > 0 or selling > 0 or goodName == "splitter" then
+			if buying > 0 or selling > 0 or goodName == uiTranslate.splitter then
 				listRender[#listRender + 1] = {
 					pos = ivec2(sec.sector.x, sec.sector.y),
 					color = ((buying > 0 and selling > 0) and colBoth) or 
