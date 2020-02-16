@@ -208,18 +208,22 @@ function OrderChain.activateFlyThroughWormhole(targetId)
 	
 	if not (targetId and valid(targetId)) then
 		local gates = { Sector():getEntitiesByComponent(ComponentType.WormHole) }
-		for _, entity in pairs(gates) do
+        
+        for _, entity in pairs(gates) do
 			tx, ty = entity:getWormholeComponent():getTargetCoordinates()
 			if tx == order.x and ty == order.y then
 				targetId = entity.id
 				-- print("Target found:", tostring(targetId))
 				break
 			end
-		end
+        end
+        
 		if not targetId or not valid(targetId) then
-			OrderChain.sendError("No Wormhole or Gate to %i:%i found in Sector %i:%i!"%_T, order.x, order.y, sx, sy)
+            OrderChain.sendError("No Wormhole or Gate to %i:%i found in Sector %i:%i!"%_T, order.x, order.y, sx, sy)
+            -- order.action = OrderType.Jump
+            OrderChain.addJumpOrder(order.x, order.y)
+            OrderChain.replaceCurrent(OrderChain.chain[#OrderChain.chain])
 			OrderChain.undoOrder(order.x, order.y)
-			OrderChain.addJumpOrder(order.x, order.y)
 			return
         end
     -- else

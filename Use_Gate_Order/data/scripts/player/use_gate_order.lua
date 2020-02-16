@@ -451,6 +451,8 @@ if onClient() then
 		
 		function finalizePath(vFrom, vTo)
 			local sector = closed[str(vTo)]
+			if not sector then return end
+
 			local dist = sector.dist -- total distance covered
 			local limit = math.ceil(dist) -- fallback to prevent an infinite loop
 			local path = {} -- temp chain for constructing the sector array
@@ -755,36 +757,45 @@ if onClient() then
 
 		local btnSel = wndPathFinding:createButton(v_split.bottom, "Use Path", "onUsePathClicked")
 		
-		local lblGates = wndPathFinding:createLabel(h_split.left, "Gates: "..pfResult[pfSelected].gates, 20)
-		lblGates:setCenterAligned()
-		
-		local lblJumps = wndPathFinding:createLabel(h_split.right, "Jumps: "..pfResult[pfSelected].jumps, 20)
-		lblJumps:setCenterAligned()
-		
-		local arrColor = ColorARGB(0.7, 0.6, 0.8, 0.2)
-		for sxy, vec in pairs(routes[pfSelected].g_path) do
-			local arr = cntArrows:createMapArrowLine()
-			arr.color = arrColor
-			arr.from = ivec2(toXY(sxy))
-			arr.to = vec
-		end
+		if pfResult and pfResult[pfSelected] then
+			wndPathFinding:createLabel(h_split.left, "Gates: "..pfResult[pfSelected].gates, 25):setCenterAligned()
+			wndPathFinding:createLabel(h_split.right, "Jumps: "..pfResult[pfSelected].jumps, 25):setCenterAligned()
+			
+			local arrColor = ColorARGB(0.7, 0.6, 0.8, 0.2)
+			for sxy, vec in pairs(routes[pfSelected].g_path) do
+				local arr = cntArrows:createMapArrowLine()
+				arr.color = arrColor
+				arr.from = ivec2(toXY(sxy))
+				arr.to = vec
+			end
+	
+			local arrColor = ColorARGB(0.7, 0.2, 0.6, 0.8)
+			for sxy, vec in pairs(routes[pfSelected].j_path) do
+				local arr = cntArrows:createMapArrowLine()
+				arr.color = arrColor
+				arr.from = ivec2(toXY(sxy))
+				arr.to = vec
+			end
 
-		local arrColor = ColorARGB(0.7, 0.2, 0.6, 0.8)
-		for sxy, vec in pairs(routes[pfSelected].j_path) do
-			local arr = cntArrows:createMapArrowLine()
-			arr.color = arrColor
-			arr.from = ivec2(toXY(sxy))
-			arr.to = vec
+		else
+			wndPathFinding:createLabel(v_split.top, "Route not possible", 25):setCenterAligned()
 		end
 	end
 
 	function UseGateOrder.onUsePathClicked(button)
-		if not (pfResult[pfSelected] and pfResult[pfSelected].path) then return end
+		local result = pfResult and pfResult[pfSelected]
+		if not (result and result.path) then return end
 
 		MapCommands.clearOrdersIfNecessary(not enqueueNextOrder)
+		local lastVec = str(pfFrom)
 
-		for _, vSec in ipairs(pfResult[pfSelected].path) do
-			MapCommands.enqueueOrder("addFlyThroughWormholeOrder", _, vSec.x, vSec.y)
+		for _, vSec in ipairs(result.path) do
+			if result.j_path[lastVec] then
+				MapCommands.enqueueOrder("addJumpOrder", vSec.x, vSec.y)
+			else
+				MapCommands.enqueueOrder("addFlyThroughWormholeOrder", _, vSec.x, vSec.y)
+			end
+			lastVec = str(vSec)
 		end
 
 		MapCommands.unlockWindow(wndPathFinding)
