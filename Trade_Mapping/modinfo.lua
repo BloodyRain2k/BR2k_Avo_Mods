@@ -1,9 +1,10 @@
+
 meta =
 {
     -- ID of your mod; Make sure this is unique!
     -- Will be used for identifying the mod in dependency lists
     -- Will be changed to workshop ID (ensuring uniqueness) when you upload the mod to the workshop
-    id = "1910090858",
+    id = "1999215648",
 
     -- Name of your mod; You may want this to be unique, but it's not absolutely necessary.
     -- This is an additional helper attribute for you to easily identify your mod in the Mods() list
@@ -16,11 +17,11 @@ meta =
     description = "Stores what sectors buy and sell so it can be remotely checked.",
 
     -- Insert all authors into this list
-    authors = { "BloodyRain2k" },
+    authors = {"BloodyRain2k"},
 
     -- Version of your mod, should be in format 1.0.0 (major.minor.patch) or 1.0 (major.minor)
     -- This will be used to check for unmet dependencies or incompatibilities
-    version = "1.0.0",
+    version = "1.0.1",
 
     -- If your mod requires dependencies, enter them here. The game will check that all dependencies given here are met.
     -- Possible attributes:
@@ -38,9 +39,9 @@ meta =
     --      {id = "OptionalMod", min = "0.2", optional = true}, -- we support OptionalMod optionally, starting at version 0.2
     -- },
     dependencies = {
-        { id = "Avorion", min = "0.31.*", max = "0.31.*" },
-        { id = "1722652757", min = "1.3.5" }, -- AzimuthLib
-        { id = "1900127979", optional = true, min = "1.1.1" }, -- Use Gate Order
+        {id = "1722652757", min = "1.3.5"},
+        {id = "1900127979", min = "1.1.1", optional = true},
+        {id = "Avorion", exact = "0.31.*"}
     },
 
     -- Set to true if the mod only has to run on the server. Clients will get notified that the mod is running on the server, but they won't download it to themselves

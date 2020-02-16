@@ -296,6 +296,7 @@ if onClient() then
 			end
 		else
 			TradeMapping.markSectorsWith(selection)
+			listContainer:hide()
 		end
 
 		listContainer:scroll(-3)
@@ -315,7 +316,7 @@ if onClient() then
 			local selling = sec.selling[goodName]
 			selling = selling and selling.stations or 0
 			
-			if buying > 0 or selling > 0 or goodName == uiTranslate.splitter then
+			if buying > 0 or selling > 0 or goodName == "splitter" then
 				listRender[#listRender + 1] = {
 					pos = ivec2(sec.sector.x, sec.sector.y),
 					color = ((buying > 0 and selling > 0) and colBoth) or 
