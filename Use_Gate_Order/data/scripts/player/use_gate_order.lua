@@ -400,7 +400,7 @@ if onClient() then
 			return vec, gate
 		end
 
-		function optimizeSector(sector)
+		function optimizeSector(sector, prefJumps) -- 'prefJump' just means that it should find the shortest path, regardless of transit type
 			if not (sector.gate and sector.dist) then return false end
 			local sxy = str(sector.vec)
 			local update = false
@@ -418,11 +418,11 @@ if onClient() then
 						dests[sxy][action][gxy] = g.vec
 						
 						if not (g.gate and g.jump) or
-						(	-- conditions that should promote using gates
+						(not prefJumps and ( -- conditions that should promote using gates
 							g.gate > sgate and g.jump >= sjump or -- less gates used while not jumping more
 							g.gate >= sgate and g.jump > sjump or -- less jumps without skipping gates
 							g.jump > sjump -- less jumps
-						) then
+						)) or (prefJumps and g.gate + g.jump > sgate + sjump) then
 							-- if g.gate then
 							-- 	print(sxy, "-->", gxy, g.gate, g.jump, "-->", sgate, sjump)
 							-- end
@@ -652,30 +652,32 @@ if onClient() then
 			-- 	end
 			-- end
 			
-			for iter = 1, limit do
-				local update = false
-				
-				for sxy, sector in pairs(closed) do
-					if not sector.gate then goto continue end
+
+			-- find the path with the least jumps, then the path with the least sectors passed
+			for _, pass in pairs { false, true } do
+				for iter = 1, limit do
+					local update = false
 					
-					if optimizeSector(sector) then
-						update = true
+					for sxy, sector in pairs(closed) do
+						if not sector.gate then goto continue end
+						
+						if optimizeSector(sector, pass) then
+							update = true
+						end
+						
+						::continue::
 					end
 					
-					::continue::
+					if not update then
+						print("Done after iteration "..iter)
+						break
+					end
 				end
 				
-				if not update then
-					print("Done after iteration "..iter)
-					break
-				end
+				routes[#routes + 1] = finalizePath(vFrom, vTo)
 			end
 			
-			-- store the route with the least jumps
-			routes = { 
-				finalizePath(vFrom, vTo)
-			}
-			
+
 			-- remove unneeded sectors, which is unneeded if this is done...
 			local count = 0
 			-- local removed = {}
@@ -747,43 +749,88 @@ if onClient() then
 		
 		pfResult = routes
 		pfSelected = 1
+		pfBtnTable = {}
 
 		wndPathFinding:clear()
 		cntArrows:clear()
 
 		-- splitter names are swapped because I don't name them by their orientation but which orientation they split
-		local v_split = UIHorizontalSplitter(Rect(wndPathFinding.size), 10, 10, 0.5)
-		local h_split = UIVerticalSplitter(v_split.top, 10, 10, 0.5)
+		local h_split = UIVerticalSplitter(Rect(wndPathFinding.size), 10, 10, 0.5)
+		-- local h_split = UIVerticalSplitter(v_split.top, 10, 10, 0.5)
 
-		local btnSel = wndPathFinding:createButton(v_split.bottom, "Use Path", "onUsePathClicked")
 		
-		if pfResult and pfResult[pfSelected] then
-			wndPathFinding:createLabel(h_split.left, "Gates: "..pfResult[pfSelected].gates, 25):setCenterAligned()
-			wndPathFinding:createLabel(h_split.right, "Jumps: "..pfResult[pfSelected].jumps, 25):setCenterAligned()
-			
-			local arrColor = ColorARGB(0.7, 0.6, 0.8, 0.2)
-			for sxy, vec in pairs(routes[pfSelected].g_path) do
-				local arr = cntArrows:createMapArrowLine()
-				arr.color = arrColor
-				arr.from = ivec2(toXY(sxy))
-				arr.to = vec
-			end
-	
-			local arrColor = ColorARGB(0.7, 0.2, 0.6, 0.8)
-			for sxy, vec in pairs(routes[pfSelected].j_path) do
-				local arr = cntArrows:createMapArrowLine()
-				arr.color = arrColor
-				arr.from = ivec2(toXY(sxy))
-				arr.to = vec
-			end
+		if pfResult then
+			local lbl_font = 20
 
-		else
-			wndPathFinding:createLabel(v_split.top, "Route not possible", 25):setCenterAligned()
+			if pfResult[1] then
+				local path = pfResult[1]
+				local v_split = UIHorizontalSplitter(h_split.left, 10, 10, 0.5)
+
+				pfBtnTable[wndPathFinding:createButton(v_split.bottom, "Use Path", "onUsePathClicked").index] = 1
+
+				local lbl = wndPathFinding:createLabel(v_split.top, "Gates: ${g}\nJumps: ${j}\nTotal: ${t}" % {g = path.gates, j = path.jumps, t = path.gates + path.jumps }, 20)
+				lbl:setCenterAligned()
+				lbl.fontSize = lbl_font
+				-- wndPathFinding:createLabel(h_split.right, "Jumps: "..pfResult[pfSelected].jumps, 25):setCenterAligned()
+				
+				local arrColor = ColorARGB(0.7, 0.6, 0.8, 0.2)
+				for sxy, vec in pairs(routes[1].g_path) do
+					local arr = cntArrows:createMapArrowLine()
+					arr.color = arrColor
+					arr.from = ivec2(toXY(sxy))
+					arr.to = vec
+				end
+				
+				local arrColor = ColorARGB(0.7, 0.2, 0.6, 0.8)
+				for sxy, vec in pairs(routes[1].j_path) do
+					local arr = cntArrows:createMapArrowLine()
+					arr.color = arrColor
+					arr.from = ivec2(toXY(sxy))
+					arr.to = vec
+				end
+			else
+				local lbl = wndPathFinding:createLabel(h_split.left, "Route not\npossible", lbl_font)
+				lbl:setCenterAligned()
+				lbl.fontSize = lbl_font
+			end
+			
+			
+			if pfResult[2] then
+				local path = pfResult[2]
+				local v_split = UIHorizontalSplitter(h_split.right, 10, 10, 0.5)
+				
+				pfBtnTable[wndPathFinding:createButton(v_split.bottom, "Use Path", "onUsePathClicked").index] = 2
+				
+				local lbl = wndPathFinding:createLabel(v_split.top, "Gates: ${g}\nJumps: ${j}\nTotal: ${t}" % {g = path.gates, j = path.jumps, t = path.gates + path.jumps }, 20)
+				lbl:setCenterAligned()
+				lbl.fontSize = lbl_font
+				-- wndPathFinding:createLabel(h_split.right, "Jumps: "..pfResult[pfSelected].jumps, 25):setCenterAligned()
+				
+				local arrColor = ColorARGB(0.7, 0.8, 0.6, 0.2)
+				for sxy, vec in pairs(routes[2].g_path) do
+					local arr = cntArrows:createMapArrowLine()
+					arr.color = arrColor
+					arr.from = ivec2(toXY(sxy))
+					arr.to = vec
+				end
+				
+				local arrColor = ColorARGB(0.7, 0.4, 0.3, 0.8)
+				for sxy, vec in pairs(routes[2].j_path) do
+					local arr = cntArrows:createMapArrowLine()
+					arr.color = arrColor
+					arr.from = ivec2(toXY(sxy))
+					arr.to = vec
+				end
+			else
+				local lbl = wndPathFinding:createLabel(h_split.right, "Route not\npossible", lbl_font)
+				lbl:setCenterAligned()
+				lbl.fontSize = lbl_font
+			end
 		end
 	end
 
 	function UseGateOrder.onUsePathClicked(button)
-		local result = pfResult and pfResult[pfSelected]
+		local result = pfResult and pfResult[pfBtnTable[button.index]]
 		if not (result and result.path) then return end
 
 		MapCommands.clearOrdersIfNecessary(not enqueueNextOrder)
