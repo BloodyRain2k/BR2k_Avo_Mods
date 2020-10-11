@@ -1,16 +1,35 @@
-if onClient() then
-    local windowsPresent = false
-    local lastSell, lastBuy
+-- namespace MapCommands
 
+--[[
+if onClient() and (not buyAmountTextBox or not sellAmountTextBox) then
+        eprint("Trademapping error: it seems that 'MapCommands.lua' has privatized variables. Improved Buy and Sell orders will not be available.")
+
+elseif onClient() then
+--]]
+
+if onClient() then
+    --[[
+    local windowsPresent = false
+    
+    local buyCombo = getGlobal("buyCombo")
+    local buyAmountTextBox = getGlobal("buyAmountTextBox")
+    local buyFilterTextBox = getGlobal("buyFilterTextBox")
+    
+    local sellCombo = getGlobal("sellCombo")
+    local sellAmountTextBox = getGlobal("sellAmountTextBox")
+    local sellFilterTextBox = getGlobal("sellFilterTextBox")
+    --]]
+    
+    local lastSell, lastBuy
     local tm_initUI = MapCommands.initUI
     function MapCommands.initUI()
         tm_initUI()
 
-		sellFilterTextBox.clearOnClick = true
-		sellAmountTextBox.clearOnClick = true
+        buyAmountTextBox.clearOnClick = true
+        buyFilterTextBox.clearOnClick = true
 
-		buyFilterTextBox.clearOnClick = true
-		buyAmountTextBox.clearOnClick = true
+		sellAmountTextBox.clearOnClick = true
+		sellFilterTextBox.clearOnClick = true
 		
         windowsPresent = MapCommands.addWindow ~= nil
     end
@@ -28,12 +47,12 @@ if onClient() then
             escortWindow:hide()
             sellWindow:hide()
             buyWindow:show()
-        end        
+        end
 	end
 	
 	function MapCommands.onSellGoodsPressed()
 		enqueueNextOrder = MapCommands.isEnqueueing()
-		
+        
 		MapCommands.fillTradeCombo(sellCombo, sellFilterTextBox.text)
         
         if windowsPresent then
@@ -43,7 +62,7 @@ if onClient() then
             buyWindow:hide()
             escortWindow:hide()
             sellWindow:show()
-        end        
+        end
     end
     
     local tm_onBuyPressed = MapCommands.onBuyWindowOKButtonPressed
@@ -51,7 +70,7 @@ if onClient() then
         enqueueNextOrder = enqueueNextOrder or MapCommands.isEnqueueing()
         tm_onBuyPressed()
         lastBuy = buyCombo.selectedValue
-        print("lastBuy", lastBuy)
+        -- print("lastBuy", lastBuy)
     end
     
     local tm_onSellPressed = MapCommands.onSellWindowOKButtonPressed
@@ -59,9 +78,10 @@ if onClient() then
         enqueueNextOrder = enqueueNextOrder or MapCommands.isEnqueueing()
         tm_onSellPressed()
         lastSell = sellCombo.selectedValue
-        print("lastSell", lastSell)
+        -- print("lastSell", lastSell)
     end
-	
+
+    
 	function MapCommands.fillTradeCombo(combo, filter)
 		combo:clear()
         local isBuying = (combo == buyCombo)
@@ -81,10 +101,11 @@ if onClient() then
 				table.insert(values, { name = good.name, displayName = displayName })
 	
 				::continue::
-			end
+            end
+
 		else
 			-- add all goods that are on board of the selected crafts
-			local selected = MapCommands.getSelectedPortraits()
+			local selected = MapCommands.filterPortraits{ selected = true }
             for _, portrait in pairs(selected) do
 				local cargos
 				if portrait.alliance then
@@ -137,6 +158,7 @@ if onClient() then
                     setIndex = comboIndex
                     print(comboIndex, isBuying)
                 end
+
                 comboIndex = comboIndex + 1
 			end
             
@@ -151,8 +173,9 @@ if onClient() then
             
             if isBuying and v.name == lastBuy or not isBuying and v.name == lastSell then
                 setIndex = comboIndex
-                print(comboIndex, isBuying)
+                -- print(comboIndex, isBuying)
             end
+
             comboIndex = comboIndex + 1
         end
         

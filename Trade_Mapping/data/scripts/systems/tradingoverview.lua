@@ -1,3 +1,4 @@
+--[[
 local tm_onInstalled = onInstalled
 function onInstalled(seed, rarity, permanent)
 	tm_onInstalled(seed, rarity, permanent)
@@ -7,6 +8,7 @@ local tm_onUninstalled = onUninstalled
 function onUninstalled(seed, rarity, permanent)
 	tm_onUninstalled(seed, rarity, permanent)
 end
+--]]
 
 
 function gatherData()
@@ -18,7 +20,6 @@ function collectSectorData()
     if not tradingData then return end
     local sellable, buyable = gatherData()
 	local debug = false
-	
 	
 	-- don't run while the server is still starting up
 	if not Galaxy().sectorLoaded or not Galaxy():sectorLoaded(Sector():getCoordinates()) then return end
@@ -120,10 +121,23 @@ function collectSectorData()
 		print(callingPlayer, Player(callingPlayer).index)
 	end
 	
-	invokeFactionFunction(Player(callingPlayer).index, true, "data/scripts/player/trade_mapping.lua", "setData", goods_data)
+	-- multiplayer fix done by thakyZ
+	local pilots = Entity():getPilotIndices()
+
+	if callingPlayer or pilots == nil then
+		invokeFactionFunction(Player(callingPlayer).index, true, "data/scripts/player/trade_mapping.lua", "setData", goods_data)
+	else
+		if pilots == 1 then
+			invokeFactionFunction(Player(pilots).index, true, "data/scripts/player/trade_mapping.lua", "setData", goods_data)
+		elseif pilots > 1 then
+			for i = 1,pilots.length do
+				invokeFactionFunction(Player(pilots[i]).index, true, "data/scripts/player/trade_mapping.lua", "setData", goods_data)
+			end
+		end
+	end
 	
 	if #buykeys > 0 or #sellkeys > 0 then
-		tradingData:insert({sellable = sellable, buyable = buyable})
+		tradingData:insert({ sellable = sellable, buyable = buyable })
 	-- else
 		-- print("No TradeMapping data to save for "..coords)
 	end

@@ -13,15 +13,20 @@ meta =
     -- Title of your mod that will be displayed to players
     title = "Trade Mapping",
 
+    -- Type of your mod, either "mod" or "factionpack"
+    type = "mod",
+
     -- Description of your mod that will be displayed to players
-    description = "Stores what sectors buy and sell so it can be remotely checked.",
+    description = "Stores what sectors buy and sell so it can be remotely looked up.",
 
     -- Insert all authors into this list
-    authors = {"BloodyRain2k"},
+    authors = {"BloodyRain2k", "thakyZ"},
 
     -- Version of your mod, should be in format 1.0.0 (major.minor.patch) or 1.0 (major.minor)
-    -- This will be used to check for unmet dependencies or incompatibilities
-    version = "1.0.2",
+    -- This will be used to check for unmet dependencies or incompatibilities, and to check compatibility between clients and dedicated servers with mods.
+    -- If a client with an unmatching major or minor mod version wants to log into a server, login is prohibited.
+    -- Unmatching patch version still allows logging into a server. This works in both ways (server or client higher or lower version).
+    version = "1.2",
 
     -- If your mod requires dependencies, enter them here. The game will check that all dependencies given here are met.
     -- Possible attributes:
@@ -40,8 +45,7 @@ meta =
     -- },
     dependencies = {
         {id = "1722652757", min = "1.3.5"},
-        {id = "1900127979", min = "1.1.1", optional = true},
-        {id = "Avorion", exact = "0.31.*"}
+        {id = "Avorion", min = "1.2.*", max = "1.2"}
     },
 
     -- Set to true if the mod only has to run on the server. Clients will get notified that the mod is running on the server, but they won't download it to themselves
