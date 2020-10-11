@@ -23,6 +23,7 @@ function sortSectorGoods(sectorData)
 	return sectorData
 end
 
+
 function toSector(s) -- modified version of https://stackoverflow.com/a/37601779/1025177
 	if type(s) ~= "string" then return s end
     
@@ -46,23 +47,27 @@ if onClient() then
 	
 	local lastX, lastY
 	local container, resolution
-	local filterCombo, selectedFilter
+	local filterCombo, selectedFilter, sectorLabels, labelContainer
     local sectorList, listContainer, listRender, listLabels
-	local lastData, sectorGoodsSorted, knownGoods
+	local lastData, sectorGoodsSorted, knownGoods, lastWare
 	local lineHeight = 11
 
 	local listBG  = ColorARGB(0.5, 0.2, 0.2, 0.2)
-	local colBuy  = ColorARGB(0.9, 0.8, 0.2, 0.2)
-	local colSell = ColorARGB(0.9, 0.2, 0.8, 0.2)
-	local colBoth = ColorARGB(0.9, 0.8, 0.8, 0.2)
-	local colNone = ColorARGB(0.9, 0.2, 0.4, 0.8)
+	local colRed  = ColorARGB(0.9, 0.8, 0.2, 0.2)
+	local colGreen = ColorARGB(0.9, 0.2, 0.8, 0.2)
+	local colYellow = ColorARGB(0.9, 0.8, 0.8, 0.2)
+	local colBlue = ColorARGB(0.9, 0.2, 0.4, 0.8)
 	local colList = ColorRGB(0.88, 0.88, 0.88)
+	local colLgtRed = ColorRGB(1.0, 0.55, 0.55)
+	local colLgtGreen = ColorRGB(0.55, 1.0, 0.55)
 	
+
 	function addLastY(num) -- joke alternative to the common ++ which lua doesn't even remotely support
 		lastY = lastY + num
 		return lastY
 	end
 	
+
 	function discoveredGoods()
 		if not lastData then return nil end
 		
@@ -131,19 +136,22 @@ if onClient() then
 		
 		return sortSectorGoods(result)
 	end
+
 	
 	function sortSectorDist(sectorV2)
-		sectorV2 = not sectorV2 and GalaxyMap():getSelectedCoordinates() or toSector(sectorV2)
-		
+		sectorV2 = vec2(not sectorV2 and GalaxyMap():getSelectedCoordinates() or toSector(sectorV2))
+
 		table.sort(sectorList, function(a, b)
-			return distance(sectorV2, a.sector) < distance(sectorV2, b.sector)
+			return distance(sectorV2, vec2(a.sector)) < distance(sectorV2, vec2(b.sector))
 		end)
 	end
 	
+
 	function altDown()
 		return Keyboard():keyPressed(KeyboardKey.LAlt) or Keyboard():keyPressed(KeyboardKey.RAlt)
 	end
 	
+
 	function str2version(strVersion)
 		local v = {}
 		for n in strVersion:gmatch("%d+") do
@@ -166,6 +174,7 @@ if onClient() then
 		player:registerCallback("onSelectMapCoordinates", "onSelectMapCoordinates")
 		player:registerCallback("onMapRenderAfterLayers", "onMapRenderAfterLayers")
 	end
+
 	
 	function TradeMapping.initUI()
 		local gm = GalaxyMap()
@@ -184,14 +193,18 @@ if onClient() then
 		listContainer = container:createScrollFrame(Rect(lastX, addLastY(20), 300, resolution.y - 5))
 		listContainer.paddingBottom = 5
 		listContainer.paddingTop = 3
+
+		labelContainer = gm:createContainer()
 	end
 	
+
 	function TradeMapping.onShowGalaxyMap()
 		resolution = getResolution()
 		invokeServerFunction("getData", Player().index)
 		TradeMapping.updateFilter()
 	end
-		
+
+
 	function TradeMapping.updateFilter()
 		if lastData and knownGoods then
 			filterCombo:clear()
@@ -218,10 +231,12 @@ if onClient() then
 		end
 	end
 	
+
 	-- function TradeMapping.onHideGalaxyMap()
 		-- print("map closed")
 	-- end
 	
+
 	function TradeMapping.onSelectMapCoordinates()
 		if lastData then
 			local coords = vec2(GalaxyMap():getSelectedCoordinates())
@@ -230,9 +245,11 @@ if onClient() then
 			invokeServerFunction("getData", Player().index)
 			return
 		end
+
 		TradeMapping.onFilterComboChanged()
 	end
 	
+
 	function TradeMapping.onMapRenderAfterLayers()
 		if listRender ~= nil and next(listRender) then
 			local renderer = UIRenderer()
@@ -249,17 +266,22 @@ if onClient() then
 				-- renderer:renderLine(n, w, sec.color, 1)
 				-- renderer:renderLine(s, w, sec.color, 1)
 				renderer:renderTargeter(vec2(sx, sy), 21, sec.color, 1)
+
+				sec.lblBuying.center = vec2(sx, sy - (lineHeight * 2 - 2))
+				sec.lblSelling.center = vec2(sx, sy + (lineHeight * 2 - 2))
 			end
 			
 			renderer:display()
 		end
 	end
 	
+
 	function TradeMapping.onSectorListClick(btn)
 		local sector = listRender[btn.index]
 		GalaxyMap():setSelectedCoordinates(sector.x, sector.y)
 	end
 	
+
 	function TradeMapping.onFilterComboChanged()
 		selectedFilter = filterCombo.selectedEntry
 		local selection = uiTranslate[selectedFilter]
@@ -267,14 +289,16 @@ if onClient() then
 		
 		if not lastData then return end
 
-		listLabels = {}
-		listRender = {}
-
-		local list = UIVerticalLister(Rect(vec2(4, 0), vec2(270, lineHeight)), 5, 0)
-	
 		listContainer:show()
 		listContainer:clear()
+		listLabels = {}
+		listRender = {}
 		
+		labelContainer:clear()
+		sectorLabels = {}
+		
+		local lastFound = false
+		local list = UIVerticalLister(Rect(vec2(4, 0), vec2(270, lineHeight)), 5, 0)
 		local coords = ivec2(GalaxyMap():getSelectedCoordinates())
 		sortSectorDist(coords)
 
@@ -289,53 +313,115 @@ if onClient() then
 				lbl.color = colList
 				listLabels[lbl.index] = lbl
 
+				if g == lastWare then
+					lastFound = true
+					lbl.color = colGreen
+					TradeMapping.markSectorsWith(lastWare)
+				end
+
 				rect.lower = rect.lower + vec2(list.inner.width * 0.75, 0)
 				local lbl = listContainer:createLabel(rect, lastData[tostring(coords)][selection][g].best_price,
 					lineHeight)
-				lbl.color = colList
+				lbl.color = ((lastFound and g == lastWare) and colGreen or colList)
 				lbl:setRightAligned()
 			end
-
-			if not next(listLabels) then listContainer:hide() end
 		else
-
-			TradeMapping.markSectorsWith(selectedFilter)
+			
+			local sectors = TradeMapping.markSectorsWith(selectedFilter)
 			listContainer:hide()
 		end
+
+		-- print("lastFound", lastFound, lastWare)
+		if not lastFound then
+			lastWare = nil
+		end
+
+		-- hide the list if it's empty
+		if not next(listLabels) then listContainer:hide() end
 
 		listContainer:scroll(-3)
 	end
 
-	function TradeMapping.markSectorsWith(goodName)
+
+	function TradeMapping.markSectorsWith(wareName)
+		labelContainer:clear()
+		sectorLabels = {}
+		
 		listRender = {}
+		sectors = {}
+
 		for i,sec in ipairs(sectorList) do
-			local buying  = sec.buying[goodName]
+			local buying = sec.buying[wareName]
+			local buyPrice = buying and buying.best_price or false
 			buying = buying and buying.stations or 0
 			
-			local selling = sec.selling[goodName]
+			local selling = sec.selling[wareName]
+			local sellPrice = selling and selling.best_price or false
 			selling = selling and selling.stations or 0
 			
-			if buying > 0 or selling > 0 or goodName == uiTranslate.splitter then
+			if buying > 0 or selling > 0 or wareName == uiTranslate.splitter then
+				if wareName ~= uiTranslate.splitter and (buying > 0 or selling > 0) then
+					-- lastWare = wareName
+
+					sectors[#sectors + 1] = {
+						pos = ivec2(sec.sector.x, sec.sector.y),
+						selling = sec.selling[wareName],
+						buying = sec.buying[wareName],
+					}
+				end
+				
+				-- when I initially named these 'buying' and 'selling' variables I named them from the perspective
+				-- of the station, so 'buying' means that the station is buying it BUT we are 'selling' it
+
+				local lblBuying = labelContainer:createLabel(vec2(), buyPrice or "", lineHeight)
+				lblBuying:setCenterAligned()
+				lblBuying.color = colLgtGreen
+
+				local lblSelling = labelContainer:createLabel(vec2(), sellPrice or "", lineHeight)
+				lblSelling:setCenterAligned()
+				lblSelling.color = colLgtRed
+
 				listRender[#listRender + 1] = {
+					lblBuying = lblBuying,
+					lblSelling = lblSelling,
 					pos = ivec2(sec.sector.x, sec.sector.y),
-					color = ((buying > 0 and selling > 0) and colBoth) or 
-						(buying > 0 and colSell or selling > 0 and colBuy or colNone)
+					color = ((buying > 0 and selling > 0) and colYellow) or 
+						(buying > 0 and colGreen or selling > 0 and colRed or colBlue),
 				}
 			end
 		end
+
+		return sectors
 	end
 	
+
 	function TradeMapping.onListSelected(index, button)
 		if button ~= 1 then return end
 
+		local found = false
+		-- pairs instead of ipairs because the ui indexes are randomly given by the game
 		for i,lbl in pairs(listLabels) do
-			lbl.color = (i == index and colSell or colList)
+			lbl.color = colList
+
 			if i == index then
-				TradeMapping.markSectorsWith(lbl.caption)
+				lbl.color = colGreen
+
+				-- if lastWare == lbl.caption then
+				-- 	lastWare = nil
+				-- else
+					found = true
+					lastWare = lbl.caption
+					TradeMapping.markSectorsWith(lbl.caption)
+				-- end
 			end
+		end
+
+		if not found then
+			lastWare = nil
 		end
 	end
 	
+	-- also called by the server
 	function TradeMapping.sectorHas(sector, good, buyingFromSector)
 		return lastData and lastData[sector] and
 			lastData[sector][(buyingFromSector and "selling" or "buying")][good] ~= nil
@@ -343,7 +429,8 @@ if onClient() then
 		-- buyingFromSector means if 'we' want to buy, but the data is saved as what the sector 'sells / buys', hence the inversion
 	end
 
-	function TradeMapping.getData(data) -- called from the server after asking for the data package with all sectors
+	-- called from the server after asking for the data package with all sectors
+	function TradeMapping.getData(data)
 		if not data then return end
 		
 		lastData = data
@@ -360,7 +447,6 @@ if onClient() then
 			TradeMapping.onSelectMapCoordinates() -- update the list
 	end
 	callable(TradeMapping, "getData")
-	
 end
 ----- client end -----
 
@@ -398,6 +484,7 @@ if onServer() then
 	-- end
 	-- print(sectors)
 
+
 	-- API --
 	-- setValue(key, value)
 	--[[ Set variable.
@@ -411,9 +498,10 @@ if onServer() then
 			Azimuth.saveConfig(config, data)
 			print(newData.entity.." collected TradeMapping data for "..newData.sector)
 		else
-			print("No TradeMapping data to save for "..newData.sector)
+			-- print("No TradeMapping data to save for "..newData.sector)
 		end
 	end
+
 
 	-- getValue(key)
 	--[[ Get single variable.
@@ -434,6 +522,7 @@ if onServer() then
 		invokeClientFunction(player, "getSectorData", result)
 	end
 	callable(TradeMapping, "getSectorData")
+
 
 	-- Get all saved values as table.
 	function TradeMapping.getData(playerIndex)
