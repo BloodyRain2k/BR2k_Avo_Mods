@@ -45,6 +45,7 @@ function OrderChain.undoOrder(x, y)
 end
 callable(OrderChain, "undoOrder")
 
+--[[
 function OrderChain.sendError(msg, ...)
     if callingPlayer then
         Player(callingPlayer):sendChatMessage("", ChatMessageType.Error, msg, ...)
@@ -52,7 +53,9 @@ function OrderChain.sendError(msg, ...)
 		Faction(Entity().factionIndex):sendChatMessage("", ChatMessageType.Error, msg, ...)
     end
 end
+--]]
 
+--[[
 function OrderChain.addJumpOrder(x, y)
     if onClient() then
         invokeServerFunction("addJumpOrder", x, y)
@@ -89,6 +92,7 @@ function OrderChain.addJumpOrder(x, y)
     end
 end
 callable(OrderChain, "addJumpOrder")
+--]]
 
 function OrderChain.addLoop(a, b)
     if onClient() then
@@ -152,14 +156,16 @@ function OrderChain.addFlyThroughWormholeOrder(targetId, sx , sy, replace)
         local owner, _, player = checkEntityInteractionPermissions(Entity(), AlliancePrivilege.ManageShips)
         if not owner then return end
     end
-	
+    
+    -- get coordinates in case we got none but a valid entity instead
 	if not (sx and sy) and valid(Entity(targetId)) then
         sx, sy = Entity(targetId):getWormholeComponent():getTargetCoordinates()
     end
     
     -- don't pass an Id because it can screw with enchaining
-	local order = { action = OrderType.FlyThroughWormhole, targetId = nil, x = sx, y = sy }
-    
+	local order = { action = OrderType.FlyThroughWormhole, x = sx, y = sy }
+    printTable(order)
+
     if replace then
         OrderChain.replaceCurrent(order)
     elseif OrderChain.canEnchain(order) then
@@ -168,6 +174,7 @@ function OrderChain.addFlyThroughWormholeOrder(targetId, sx , sy, replace)
 end
 callable(OrderChain, "addFlyThroughWormholeOrder")
 
+--[[ 
 function OrderChain.activateJump(x, y)
     local shipX, shipY = Sector():getCoordinates()
     local jumpValid, error = Entity():isJumpRouteValid(shipX, shipY, x, y)
@@ -199,9 +206,11 @@ function OrderChain.activateJump(x, y)
         OrderChain.sendError(text)
     end
 end
+--]]
 
 function OrderChain.activateFlyThroughWormhole(targetId)
-	local order = OrderChain.chain[OrderChain.activeOrder]
+    local order = OrderChain.chain[OrderChain.activeOrder]
+    printTable(order)
 	local sx, sy = Sector():getCoordinates()
 	
 	ShipAI():setStatus("Jumping to ${x}:${y} /* ship AI status */"%_T, { x = order.x, y = order.y })
