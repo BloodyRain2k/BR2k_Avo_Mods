@@ -71,16 +71,16 @@ function updateStorageDistribution()
             }
             dats.vol  = dats.amount * dats.size
             dats.cost = dats.amount * dats.price
-
-            if k == "input" then
-                dats.needed = (ing.optional == 0)
-            end
             
             cargo[v][name] = dats
             
-            if k == "input" and dats.needed then
-                cargo[v].volNeeded  = cargo[v].volNeeded  + dats.vol
-                cargo[v].costNeeded = cargo[v].costNeeded + dats.cost
+            if v == "input" then
+                dats.needed = (ing.optional == 0)
+
+                if dats.needed then
+                    cargo[v].volNeeded  = cargo[v].volNeeded  + dats.vol
+                    cargo[v].costNeeded = cargo[v].costNeeded + dats.cost
+                end
             end
             
             cargo[v].volTotal  = cargo[v].volTotal  + dats.vol

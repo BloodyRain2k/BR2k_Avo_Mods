@@ -74,7 +74,8 @@ function TradingManager:calcMaxStock(name)
     ware = self.cargo.output[name]
     if ware then
         local max = round(maxCargoVol / (ware.size < 1 and ware.size or 1))
-        local norm = round(cyclesOut * ware.amount / stack) * stack
+        -- local norm = round(cyclesOut * ware.amount / stack) * stack
+        local norm = round(spaceOut / ware.size / #self.soldGoods / stack) * stack
 
         if debugPrint == true then
             print(norm, max)
