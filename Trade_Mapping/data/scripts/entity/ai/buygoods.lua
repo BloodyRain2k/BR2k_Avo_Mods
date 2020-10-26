@@ -27,7 +27,7 @@ if onServer() then
         if required > possible then self.data.amount = possible end
         -- if required > buyable then self.data.amount = buyable end
 
-        print("req:", required, "poss:", possible, "buy:", buyable)
+        -- print("req:", required, "poss:", possible, "buy:", buyable)
 
         tm_updateServer(timeStep)
     end

@@ -496,7 +496,7 @@ if onServer() then
 			-- only save if the sector actually sells something
 			data[newData.sector] = { buying = newData.buying, selling = newData.selling }
 			Azimuth.saveConfig(config, data)
-			print(newData.entity.." collected TradeMapping data for "..newData.sector)
+			print(newData.entity.." updated TradeMapping data for "..newData.sector)
 		else
 			-- print("No TradeMapping data to save for "..newData.sector)
 		end
