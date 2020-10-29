@@ -1,13 +1,3 @@
-local alt_pressed = false
-
---[[
-local alt_onGalaxyMapKeyboardEvent = MapCommands.onGalaxyMapKeyboardEvent
-function MapCommands.onGalaxyMapKeyboardEvent(key, pressed)
-    alt_onGalaxyMapKeyboardEvent(key, pressed)
-    alt_pressed = (key == KeyboardKey.LAlt or key == KeyboardKey.RAlt)
-end
---]]
-
 --[[
 function MapCommands.onGalaxyMapMouseDown(button, mx, my, cx, cy)
     if button == MouseButton.Right and #MapCommands.filterPortraits{selected = true} > 0
