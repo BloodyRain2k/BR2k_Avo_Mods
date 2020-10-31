@@ -1,28 +1,36 @@
+function AIHarvest:fightersRecall()
+    local controller = FighterController()
+    if not controller or not self.squads or #self.squads < 1 then return end
 
-package.path = package.path .. ";data/scripts/lib/?.lua"
+    local fighters = { controller:getDeployedFighters() }
+    for i,f in ipairs(fighters) do
+        local ai = FighterAI(f.id)
+        ai.ignoreMothershipOrders = false
+        ai:setOrders(FighterOrders.Return, ai.mothershipId)
+    end
 
-include ("stringutility")
-include ("refineutility")
-
-AIHarvest = {}
-
-AIHarvest.objectToHarvest = nil
-AIHarvest.harvestLoot = nil
-AIHarvest.collectCounter = 0
-AIHarvest.harvestMaterial = nil
-AIHarvest.hasRawLasers = false
-AIHarvest.noCargoSpace = false
-
-AIHarvest.noTargetsLeft = false
-AIHarvest.noTargetsLeftTimer = 1
-
-AIHarvest.stuckLoot = {}
-
-function AIHarvest:getUpdateInterval()
-    if self.noTargetsLeft or self.noCargoSpace then return 15 end
-    
-    return 1
+    -- [[
+    for k,v in ipairs(self.squads) do
+        controller:setSquadOrders(v, FighterOrders.Return, Uuid())
+    end
+    --]]
 end
+
+
+function AIHarvest:fightersHarvest()
+    local controller = FighterController()
+    if not controller or not self.squads or #self.squads < 1 then return end
+
+    for k,v in ipairs(self.squads) do
+        controller:setSquadOrders(v, FighterOrders.Harvest, Uuid())
+    end
+
+    local fighters = { controller:getDeployedFighters() }
+    for i,f in ipairs(fighters) do
+        FighterAI(f.id).ignoreMothershipOrders = true
+    end
+end
+
 
 function AIHarvest:checkIfAbleToHarvest()
     if onServer() then
@@ -42,10 +50,13 @@ function AIHarvest:checkIfAbleToHarvest()
         
         local hangar = Hangar()
         local squads = {hangar:getSquads()}
+        self.squads = {}
         
         for _, index in pairs(squads) do
             local category = hangar:getSquadMainWeaponCategory(index)
             if self.weaponCategoryMatches(category) then
+                self.squads[#self.squads + 1] = index
+
                 if self.harvestMaterial == nil or hangar:getHighestMaterialInSquadMainCategory(index).value > self.harvestMaterial then
                     self.harvestMaterial = hangar:getHighestMaterialInSquadMainCategory(index).value
                 end
@@ -53,7 +64,7 @@ function AIHarvest:checkIfAbleToHarvest()
                 self.hasRawLasers = self.hasRawLasers or hangar:getSquadHasRawMinersOrSalvagers(index)
             end
         end
-        
+
         if not self.harvestMaterial then
             self.harvestMaterial = self.getSecondaryHarvestMaterial(ship)
         end
@@ -65,7 +76,8 @@ function AIHarvest:checkIfAbleToHarvest()
                 faction:sendChatMessage("", ChatMessageType.Error, self.getNoWeaponsError())
             end
             
-            --            print("no adequate turrets")
+            self:fightersRecall()
+            -- print("no adequate turrets")
             ShipAI():setPassive()
             terminate()
         end
@@ -80,6 +92,7 @@ function AIHarvest:updateServer(timeStep)
         self:checkIfAbleToHarvest()
         
         if self.harvestMaterial == nil then
+            self:fightersRecall()
             ShipAI():setPassive()
             terminate()
             return
@@ -88,6 +101,7 @@ function AIHarvest:updateServer(timeStep)
     
     if ship.hasPilot or ((ship.playerOwned or ship.allianceOwned) and ship:getCrewMembers(CrewProfessionType.Captain) == 0) then
         --        print("no captain")
+        self:fightersRecall()
         ShipAI():setPassive()
         terminate()
         return
@@ -101,22 +115,37 @@ function AIHarvest:updateServer(timeStep)
     end
 end
 
+
 -- check the immediate region around the ship for loot that can be collected
 -- and if there is some, assign harvestLoot
 function AIHarvest:findHarvestLoot()
     local loots = {Sector():getEntitiesByType(EntityType.Loot)}
     local ship = Entity()
-    
+
     self.harvestLoot = nil
     for _, loot in pairs(loots) do
         if loot:isCollectable(ship) and distance2(loot.translationf, ship.translationf) < 1500 * 1500 then
             if self.stuckLoot[loot.index.string] ~= true then
-                self.harvestLoot = loot
-                return
+                local goodToCollect = true
+
+                -- don't collect tiny loot amounts
+                if loot:hasComponent(ComponentType.MoneyLoot) then
+                    if loot:getMoneyLootAmount() < 10 then goodToCollect = false end
+                end
+
+                if loot:hasComponent(ComponentType.ResourceLoot) then
+                    if loot:getResourceLootAmount() < 10 then goodToCollect = false end
+                end
+
+                if goodToCollect then
+                    self.harvestLoot = loot
+                    return
+                end
             end
         end
     end
 end
+
 
 -- check the sector for an object that can be mined
 -- if there is one, assign objectToHarvest
@@ -151,17 +180,12 @@ function AIHarvest:findObjectToHarvest()
                 end
             end
             
+            self:fightersRecall()
             ShipAI():setPassive()
         end
     end
 end
 
-function AIHarvest:canContinueHarvesting()
-    -- prevent terminating script before it even started
-    if not self.harvestMaterial then return true end
-    
-    return valid(self.harvestLoot) or valid(self.objectToHarvest) or not self.noTargetsLeft
-end
 
 function AIHarvest:updateHarvesting(timeStep)
     local ship = Entity()
@@ -169,6 +193,7 @@ function AIHarvest:updateHarvesting(timeStep)
     if self.hasRawLasers == true then
         if ship.freeCargoSpace < 1 then
             if self.noCargoSpace == false then
+                self:fightersRecall()
                 ShipAI():setPassive()
                 
                 local faction = Faction(ship.factionIndex)
@@ -235,6 +260,7 @@ function AIHarvest:updateHarvesting(timeStep)
             
             if valid(self.harvestLoot) then
                 ai:setFly(self.harvestLoot.translationf, 0)
+                self:fightersHarvest()
             end
         end
         
@@ -247,6 +273,7 @@ function AIHarvest:updateHarvesting(timeStep)
         or ai.state ~= AIState.Harvest then
             
             ai:setHarvest(self.objectToHarvest)
+            self:fightersHarvest()
             self.stuckLoot = {}
         end
     else
@@ -254,43 +281,3 @@ function AIHarvest:updateHarvesting(timeStep)
     end
     
 end
-
-function AIHarvest:setObjectToHarvest(index)
-    self.objectToHarvest = Sector():getEntity(index)
-end
-
----- this function will be executed every frame on the client only
---function AIHarvest:updateClient(timeStep)
---    if valid(self.objectToHarvest) then
---        drawDebugSphere(self.objectToHarvest:getBoundingSphere(), ColorRGB(1, 0, 0))
---    end
---end
-
-
-function AIHarvest:new()
-    local object = {}
-    setmetatable(object, self)
-    self.__index = self
-    
-    return object
-end
-
-function AIHarvest.CreateNamespace()
-    local instance = AIHarvest:new()
-    local result = {instance = instance}
-    
-    result.getUpdateInterval = function(...) return instance:getUpdateInterval(...) end
-    result.checkIfAbleToHarvest = function(...) return instance:checkIfAbleToHarvest(...) end
-    result.updateServer = function(...) return instance:updateServer(...) end
-    result.findHarvestLoot = function(...) return instance:findHarvestLoot(...) end
-    result.findObjectToHarvest = function(...) return instance:findObjectToHarvest(...) end
-    result.canContinueHarvesting = function(...) return instance:canContinueHarvesting(...) end
-    result.updateHarvesting = function(...) return instance:updateHarvesting(...) end
-    result.setObjectToHarvest = function(...) return instance:setObjectToHarvest(...) end
-    -- result.fighters = FighterController()
-    
-    return result
-end
-
-
--- return AIHarvest
