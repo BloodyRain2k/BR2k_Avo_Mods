@@ -2,18 +2,16 @@ function AIHarvest:fightersRecall()
     local controller = FighterController()
     if not controller or not self.squads or #self.squads < 1 then return end
 
+    for k,v in ipairs(self.squads) do
+        controller:setSquadOrders(v, FighterOrders.Return, Uuid())
+    end
+
     local fighters = { controller:getDeployedFighters() }
     for i,f in ipairs(fighters) do
         local ai = FighterAI(f.id)
         ai.ignoreMothershipOrders = false
         ai:setOrders(FighterOrders.Return, ai.mothershipId)
     end
-
-    -- [[
-    for k,v in ipairs(self.squads) do
-        controller:setSquadOrders(v, FighterOrders.Return, Uuid())
-    end
-    --]]
 end
 
 
@@ -27,6 +25,7 @@ function AIHarvest:fightersHarvest()
 
     local fighters = { controller:getDeployedFighters() }
     for i,f in ipairs(fighters) do
+        -- change the fighters to ignore further changes in the squad orders so they continue the harvest order while the ship is collecting loot etc.
         FighterAI(f.id).ignoreMothershipOrders = true
     end
 end
@@ -49,7 +48,7 @@ function AIHarvest:checkIfAbleToHarvest()
         end
         
         local hangar = Hangar()
-        local squads = {hangar:getSquads()}
+        local squads = { hangar:getSquads() }
         self.squads = {}
         
         for _, index in pairs(squads) do
@@ -76,8 +75,8 @@ function AIHarvest:checkIfAbleToHarvest()
                 faction:sendChatMessage("", ChatMessageType.Error, self.getNoWeaponsError())
             end
             
-            self:fightersRecall()
             -- print("no adequate turrets")
+            self:fightersRecall()
             ShipAI():setPassive()
             terminate()
         end
@@ -160,6 +159,7 @@ function AIHarvest:findObjectToHarvest()
         self.noTargetsLeft = false
         self.noTargetsLeftTimer = 1
         broadcastInvokeClientFunction("setObjectToHarvest", self.objectToHarvest.index)
+
     else
         if self.noTargetsLeft == false or self.noTargetsLeftTimer <= 0 then
             self.noTargetsLeft = true
@@ -189,12 +189,13 @@ end
 
 function AIHarvest:updateHarvesting(timeStep)
     local ship = Entity()
+    local ai = ShipAI()
     
     if self.hasRawLasers == true then
         if ship.freeCargoSpace < 1 then
             if self.noCargoSpace == false then
                 self:fightersRecall()
-                ShipAI():setPassive()
+                ai:setPassive()
                 
                 local faction = Faction(ship.factionIndex)
                 local x, y = Sector():getCoordinates()
@@ -203,9 +204,10 @@ function AIHarvest:updateHarvesting(timeStep)
                 local ores, totalOres = getOreAmountsOnShip(ship)
                 local scraps, totalScraps = getScrapAmountsOnShip(ship)
                 if totalOres + totalScraps == 0 then
-                    ShipAI():setStatus(self.getNoSpaceStatus(), {})
+                    ai:setStatus(self.getNoSpaceStatus(), {})
                     if faction then faction:sendChatMessage(ship.name or "", ChatMessageType.Normal, self.getNoSpaceMessage(), coords) end
                     self.noCargoSpace = true
+
                 else
                     local ret, moreOrders = ship:invokeFunction("data/scripts/entity/orderchain.lua", "hasMoreOrders")
                     if ret == 0 and moreOrders == true then
@@ -242,8 +244,6 @@ function AIHarvest:updateHarvesting(timeStep)
         
     end
     
-    local ai = ShipAI()
-    
     if valid(self.harvestLoot) then
         ai:setStatus(self.getCollectLootStatus(), {})
         
@@ -259,8 +259,8 @@ function AIHarvest:updateHarvesting(timeStep)
             end
             
             if valid(self.harvestLoot) then
-                ai:setFly(self.harvestLoot.translationf, 0)
                 self:fightersHarvest()
+                ai:setFly(self.harvestLoot.translationf, 0)
             end
         end
         
@@ -272,9 +272,9 @@ function AIHarvest:updateHarvesting(timeStep)
         or ship.selectedObject.index ~= self.objectToHarvest.index
         or ai.state ~= AIState.Harvest then
             
-            ai:setHarvest(self.objectToHarvest)
-            self:fightersHarvest()
             self.stuckLoot = {}
+            self:fightersHarvest()
+            ai:setHarvest(self.objectToHarvest)
         end
     else
         ai:setStatus(self.getAllHarvestedStatus(), {})
