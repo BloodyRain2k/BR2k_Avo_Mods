@@ -52,4 +52,4 @@ function OrderChain.addLoop(a, b)
         OrderChain.enchain(order)
     end
 end
-callable(OrderChain, "addLoop")
+-- callable(OrderChain, "addLoop")

@@ -1,17 +1,40 @@
+
+-- namespace AIHarvest
+function AIHarvest:initialize(initialObjectId)
+    Entity():registerCallback("onAIStateChanged", "onAIStateChanged")
+    -- print("registered")
+
+    if initialObjectId then
+        self.objectToHarvest = Entity(initialObjectId)
+    end
+end
+
+
+function AIHarvest.onAIStateChanged(entityId, state)
+    print("new state of "..tostring(entityId).." is "..tostring(state))
+    if state == AIState.Passive or state == AIState.Idle or state == AIState.Jump then
+        AIHarvest:fightersRecall()
+    end
+end
+
+
 function AIHarvest:fightersRecall()
     local controller = FighterController()
-    if not controller or not self.squads or #self.squads < 1 then return end
+    if not controller or not self.squads or #self.squads < 1 then return 0 end
 
     for k,v in ipairs(self.squads) do
         controller:setSquadOrders(v, FighterOrders.Return, Uuid())
     end
 
+    self.setHarvest = false
+
     local fighters = { controller:getDeployedFighters() }
     for i,f in ipairs(fighters) do
         local ai = FighterAI(f.id)
-        ai.ignoreMothershipOrders = false
         ai:setOrders(FighterOrders.Return, ai.mothershipId)
     end
+
+    return #fighters or 0
 end
 
 
@@ -19,14 +42,37 @@ function AIHarvest:fightersHarvest()
     local controller = FighterController()
     if not controller or not self.squads or #self.squads < 1 then return end
 
-    for k,v in ipairs(self.squads) do
-        controller:setSquadOrders(v, FighterOrders.Harvest, Uuid())
+    for i,sqd in ipairs(self.squads) do
+        controller:setSquadOrders(sqd, FighterOrders.Harvest, Uuid())
+    end
+
+    self.setHarvest = true
+    self:fightersIgnore()
+end
+
+
+function AIHarvest:fightersIgnore()
+    local count = 0
+    local hangar = Hangar()
+    local controller = FighterController()
+    if not controller or not self.squads or #self.squads < 1 then return end
+
+    for i,sqd in ipairs(self.squads) do
+        count = count + hangar:getSquadFighters(sqd)
     end
 
     local fighters = { controller:getDeployedFighters() }
     for i,f in ipairs(fighters) do
+        local ai = FighterAI(f.id)
+        if ai.ignoreMothershipOrders then
+            count = count - 1
+        end
         -- change the fighters to ignore further changes in the squad orders so they continue the harvest order while the ship is collecting loot etc.
-        FighterAI(f.id).ignoreMothershipOrders = true
+        ai.ignoreMothershipOrders = true
+    end
+
+    if count < 1 then
+        self.setHarvest = false
     end
 end
 
@@ -99,13 +145,17 @@ function AIHarvest:updateServer(timeStep)
     end
     
     if ship.hasPilot or ((ship.playerOwned or ship.allianceOwned) and ship:getCrewMembers(CrewProfessionType.Captain) == 0) then
-        --        print("no captain")
+        -- print("no captain")
         self:fightersRecall()
         ShipAI():setPassive()
         terminate()
         return
     end
     
+    if self.setHarvest then
+        self:fightersIgnore()
+    end
+
     -- find an object that can be harvested
     self:updateHarvesting(timeStep)
     
@@ -153,7 +203,7 @@ function AIHarvest:findObjectToHarvest()
     local sector = Sector()
     
     local higherMaterialPresent
-    self.objectToHarvest, higherMaterialPresent = self.findObject(ship, sector, self.harvestMaterial)
+    self.objectToHarvest, higherMaterialPresent = self:findObject(ship, sector, self.harvestMaterial)
     
     if self.objectToHarvest then
         self.noTargetsLeft = false
@@ -174,6 +224,7 @@ function AIHarvest:findObjectToHarvest()
                     local materialName = Material(self.harvestMaterial + 1).name
                     faction:sendChatMessage(ship.name or "", ChatMessageType.Error, self.getMaterialTooLowError(), coords, materialName)
                     faction:sendChatMessage(ship.name or "", ChatMessageType.Normal, self.getMaterialTooLowMessage(), coords, materialName)
+
                 else
                     faction:sendChatMessage(ship.name or "", ChatMessageType.Error, self.getSectorEmptyError(), coords)
                     faction:sendChatMessage(ship.name or "", ChatMessageType.Normal, self.getSectorEmptyMessage(), coords)
@@ -181,6 +232,7 @@ function AIHarvest:findObjectToHarvest()
             end
             
             self:fightersRecall()
+            -- print("blegh?")
             ShipAI():setPassive()
         end
     end
@@ -254,12 +306,12 @@ function AIHarvest:updateHarvesting(timeStep)
             
             if ai.isStuck then
                 self.stuckLoot[self.harvestLoot.index.string] = true
-                self:findHarvestLoot()
                 self.collectCounter = self.collectCounter + 2
+                self:findHarvestLoot()
             end
             
             if valid(self.harvestLoot) then
-                self:fightersHarvest()
+                -- self:fightersHarvest()
                 ai:setFly(self.harvestLoot.translationf, 0)
             end
         end
@@ -273,11 +325,22 @@ function AIHarvest:updateHarvesting(timeStep)
         or ai.state ~= AIState.Harvest then
             
             self.stuckLoot = {}
-            self:fightersHarvest()
-            ai:setHarvest(self.objectToHarvest)
+            -- printTable({ ship, self.objectToHarvest, distance(ship.position, self.objectToHarvest.position), vec3(ship.position) })
+            -- print(ship.name, distance(ship.position.position, self.objectToHarvest.position.position))
+            if distance(ship.position.position, self.objectToHarvest.position.position) > 200 then
+                -- print(self:fightersRecall(), ai.state, AIState.Harvest)
+                if self:fightersRecall() < 1 then
+                    ai:setFly(self.objectToHarvest.translationf, 0)
+                end
+            else
+                -- print("nom")
+                self:fightersHarvest()
+                ai:setHarvest(self.objectToHarvest)
+            end
         end
+
     else
         ai:setStatus(self.getAllHarvestedStatus(), {})
+
     end
-    
 end
