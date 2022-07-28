@@ -265,10 +265,28 @@ if onClient() then
 				-- renderer:renderLine(s, e, sec.color, 1)
 				-- renderer:renderLine(n, w, sec.color, 1)
 				-- renderer:renderLine(s, w, sec.color, 1)
-				renderer:renderTargeter(vec2(sx, sy), 21, sec.color, 1)
+				if sx >= 0 and sy >= 0 and sx <= resolution.x and sy <= resolution.y then
+					renderer:renderTargeter(vec2(sx, sy), 21, sec.color, 1)
 
-				sec.lblBuying.center = vec2(sx, sy - (lineHeight * 2 - 2))
-				sec.lblSelling.center = vec2(sx, sy + (lineHeight * 2 - 2))
+					if sec.lblBuying and not sec.lblBuying.visible then
+						sec.lblBuying:show()
+						sec.lblBuying.center = vec2(sx, sy - (lineHeight * 2 - 2))
+					end
+
+					if sec.lblSelling and not sec.lblSelling.visible then
+						sec.lblSelling:show()
+						sec.lblSelling.center = vec2(sx, sy + (lineHeight * 2 - 2))
+					end
+				else
+					if sec.lblBuying and sec.lblBuying.visible then
+						sec.lblBuying:hide()
+					end
+
+					if sec.lblSelling and sec.lblSelling.visible then
+						sec.lblSelling:hide()
+					end
+				end
+
 			end
 			
 			renderer:display()
@@ -350,6 +368,8 @@ if onClient() then
 		listRender = {}
 		sectors = {}
 
+		local dataOnly = wareName == uiTranslate.splitter
+
 		for i,sec in ipairs(sectorList) do
 			local buying = sec.buying[wareName]
 			local buyPrice = buying and buying.best_price or false
@@ -359,8 +379,10 @@ if onClient() then
 			local sellPrice = selling and selling.best_price or false
 			selling = selling and selling.stations or 0
 			
-			if buying > 0 or selling > 0 or wareName == uiTranslate.splitter then
-				if wareName ~= uiTranslate.splitter and (buying > 0 or selling > 0) then
+			if dataOnly or buying > 0 or selling > 0 then
+				local lblBuying, lblSelling
+
+				if not dataOnly and (buying > 0 or selling > 0) then
 					-- lastWare = wareName
 
 					sectors[#sectors + 1] = {
@@ -368,18 +390,19 @@ if onClient() then
 						selling = sec.selling[wareName],
 						buying = sec.buying[wareName],
 					}
+					
+					-- when I initially named these 'buying' and 'selling' variables I named them from the perspective of the station, so 'buying' means that the station is buying it BUT we are 'selling' it
+					
+					lblBuying = labelContainer:createLabel(vec2(), buyPrice or "", lineHeight)
+					lblBuying:setCenterAligned()
+					lblBuying.color = colLgtGreen
+					-- lblBuying.mouseDownFunction = "onDebug"
+					
+					lblSelling = labelContainer:createLabel(vec2(), sellPrice or "", lineHeight)
+					lblSelling:setCenterAligned()
+					lblSelling.color = colLgtRed
+					-- lblSelling.mouseDownFunction = "onDebug"
 				end
-				
-				-- when I initially named these 'buying' and 'selling' variables I named them from the perspective
-				-- of the station, so 'buying' means that the station is buying it BUT we are 'selling' it
-
-				local lblBuying = labelContainer:createLabel(vec2(), buyPrice or "", lineHeight)
-				lblBuying:setCenterAligned()
-				lblBuying.color = colLgtGreen
-
-				local lblSelling = labelContainer:createLabel(vec2(), sellPrice or "", lineHeight)
-				lblSelling:setCenterAligned()
-				lblSelling.color = colLgtRed
 
 				listRender[#listRender + 1] = {
 					lblBuying = lblBuying,
@@ -421,6 +444,10 @@ if onClient() then
 		end
 	end
 	
+	function TradeMapping.onDebug(index, button)
+		print("TM_Debug: ".. index .." - ".. button)
+	end
+
 	-- also called by the server
 	function TradeMapping.sectorHas(sector, good, buyingFromSector)
 		return lastData and lastData[sector] and

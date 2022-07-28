@@ -3,13 +3,14 @@ table.insert(scripts, "/lowfactory.lua")
 table.insert(scripts, "/midfactory.lua")
 table.insert(scripts, "/highfactory.lua")
 
-function TradingUtility.detectBuyableAndSellableGoods(sellable, buyable, stations_only)
+function TradingUtility.detectBuyableAndSellableGoods(sellable, buyable, stations_only, sector)
 	sellable = sellable or {}
 	buyable = buyable or {}
+	sector = sector or Sector()
 	
-	local entities = { Sector():getEntitiesByType(EntityType.Station) }
+	local entities = { sector:getEntitiesByType(EntityType.Station) }
 	if not stations_only then
-		for _, entity in pairs({ Sector():getEntitiesByType(EntityType.Ship) }) do
+		for _, entity in pairs({ sector:getEntitiesByType(EntityType.Ship) }) do
 			table.insert(entities, entity)
 		end
 	end
