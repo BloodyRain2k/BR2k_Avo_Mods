@@ -11,19 +11,18 @@ end
 --]]
 
 
-function gatherData()
-    return TradingUtility.detectBuyableAndSellableGoods(_, _, true)
-end
-
-
 function collectSectorData()
-    if not tradingData then return end
-    local sellable, buyable = gatherData()
-	local debug = false
-	
+	local sector = Sector()
+
 	-- don't run while the server is still starting up
-	if not Galaxy().sectorLoaded or not Galaxy():sectorLoaded(Sector():getCoordinates()) then return end
-	
+    if not tradingData or not Galaxy().sectorLoaded or
+		not Galaxy():sectorLoaded(sector:getCoordinates()) then
+			return
+	end
+
+    local sellable, buyable = TradingUtility.detectBuyableAndSellableGoods(_, _, true, sector)
+	local debug = false
+
 	-- local sellable, buyable = TradingUtility.detectBuyableAndSellableGoods(_, _, true) -- only get station goods
 	local sellkeys, buykeys = {}, {} -- indices for sorting the goods
 	local selling,  buying  = {}, {}
@@ -34,22 +33,22 @@ function collectSectorData()
 	-- 	 }
 	-- }
 	
-	local coords = vec2(Sector():getCoordinates())
+	local coords = vec2(sector:getCoordinates())
 	-- print(Entity().name.." is collecting TradeMapping data in "..coords)
 	
     for i, good in pairs(buyable) do
 		-- good.good.price holds the base price
-		local g = good.good.name
-		local gdn = good.good:displayName(2)
-		local data = selling[g]
+		local goodId = good.good.name
+		local goodName = good.good:displayName(2)
+		local data = selling[goodId]
 		
 		if (not data) then
-			sellkeys[#sellkeys + 1] = g
+			sellkeys[#sellkeys + 1] = goodId
 			data = {
-				name = gdn,
+				name = goodName,
 				stations = 0,
 				avg_price = 0,
-				best_price = 99999999,
+				best_price = 9999999999,
 			}
 		end
 		
@@ -57,11 +56,11 @@ function collectSectorData()
 		data.stations = data.stations + 1
 		data.avg_price = (avg + good.price) / data.stations
 		data.best_price = math.min(good.price, data.best_price)
-		selling[g] = data
+		selling[goodId] = data
 	end
 	
-	if #sellkeys > 0 then
-		if debug and false then
+	if debug and false then
+		if #sellkeys > 0 then
 			table.sort(sellkeys)
 			local sell_str = "Selling >> "..#sellkeys.." goods: "
 			for i,v in ipairs(sellkeys) do
@@ -73,14 +72,14 @@ function collectSectorData()
 	end
 
     for i, good in pairs(sellable) do
-		local g = good.good.name
-		local gdn = good.good:displayName(2)
-		local data = buying[g]
+		local goodId = good.good.name
+		local goodName = good.good:displayName(2)
+		local data = buying[goodId]
 		
 		if (not data) then
-			buykeys[#buykeys + 1] = g
+			buykeys[#buykeys + 1] = goodId
 			data = {
-				name = gdn,
+				name = goodName,
 				stations = 0,
 				avg_price = 0,
 				best_price = 0,
@@ -91,11 +90,11 @@ function collectSectorData()
 		data.stations = data.stations + 1
 		data.avg_price = (avg + good.price) / data.stations
 		data.best_price = math.max(good.price, data.best_price)
-		buying[g] = data
+		buying[goodId] = data
 	end
 	
-	if #buykeys > 0 then
-		if debug and false then
+	if debug and false then
+		if #buykeys > 0 then
 			table.sort(buykeys)
 			local buy_str = "Buying << "..#buykeys.." goods: "
 			for i,v in ipairs(buykeys) do
@@ -114,19 +113,20 @@ function collectSectorData()
 		selling = selling,
 	}
 	
+	-- multiplayer fix done by thakyZ
+	local pilots = Entity():getPilotIndices()
+	local player = Player(callingPlayer)
+	
 	if debug then
 		-- printTable(sellable)
 		-- printTable(buyable)
 		printTable(goods_data)
-		print(callingPlayer, Player(callingPlayer).index)
+		print(callingPlayer, player)
 	end
 	
-	-- multiplayer fix done by thakyZ
-	local pilots = Entity():getPilotIndices()
-
-	if callingPlayer or pilots == nil then
-		invokeFactionFunction(Player(callingPlayer).index, true, "data/scripts/player/trade_mapping.lua", "setData", goods_data)
-	else
+	if player then
+		invokeFactionFunction(player.index, true, "data/scripts/player/trade_mapping.lua", "setData", goods_data)
+	elseif pilots ~= nil then
 		if pilots == 1 then
 			invokeFactionFunction(Player(pilots).index, true, "data/scripts/player/trade_mapping.lua", "setData", goods_data)
 		elseif pilots > 1 then
@@ -134,6 +134,8 @@ function collectSectorData()
 				invokeFactionFunction(Player(pilots[i]).index, true, "data/scripts/player/trade_mapping.lua", "setData", goods_data)
 			end
 		end
+	else
+		print("[TM]: ok, who owns "..Entity().name.."? Because I don't know...")
 	end
 	
 	if #buykeys > 0 or #sellkeys > 0 then
