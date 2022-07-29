@@ -482,8 +482,9 @@ end
 if onServer() then
 	local Azimuth = include("azimuthlib-basic")
 	local next = next -- for checking if a table is empty
+	local player = Player()
 
-	local pid = Player().id.id
+	local pid = player.id.id
 	local config = "TradeMapping_"..pid
 	local data = Azimuth.loadConfig(config, {})
 	-- {
@@ -500,9 +501,9 @@ if onServer() then
 	-- 	 }
 	-- }
 
-	print("TradeMapping init for "..Player().baseName.." ("..pid..")")
+	print("TradeMapping init for '"..player.baseName.."' ("..pid..")")
 	local dataNum = tablelength(data)
-	print(Player().baseName.." has mapped "..dataNum.." sector"..(dataNum == 1 and "" or "s"))
+	print("'"..player.baseName.."' has mapped "..dataNum.." sector"..(dataNum == 1 and "" or "s"))
 	-- print(config)
 
 	-- local sectors = "Data: "
@@ -523,7 +524,7 @@ if onServer() then
 			-- only save if the sector actually sells something
 			data[newData.sector] = { buying = newData.buying, selling = newData.selling }
 			Azimuth.saveConfig(config, data)
-			print(newData.entity.." updated TradeMapping data for "..newData.sector)
+			print("'"..newData.entity.."' updated TradeMapping data for "..newData.sector)
 		else
 			-- print("No TradeMapping data to save for "..newData.sector)
 		end
